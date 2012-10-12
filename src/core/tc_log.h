@@ -3,67 +3,85 @@
 
 #include <xcopy.h>
 
-#define LOG_STDERR            0
-#define LOG_EMERG             1
-#define LOG_ALERT             2
-#define LOG_CRIT              3
-#define LOG_ERR               4
-#define LOG_WARN              5
-#define LOG_NOTICE            6
-#define LOG_INFO              7
-#define LOG_DEBUG             8
+/*
+ * priorities/facilities are encoded into a single 32-bit quantity, where the
+ * bottom 3 bits are the priority (0-7) and the top 28 bits are the facility
+ * (0-big number).  Both the priorities and the facilities map roughly
+ * one-to-one to strings in the syslogd(8) source code.  This mapping is
+ * included in this file.
+ *
+ * priorities (these are ordered)
+ */
+#define	PRI_EMERG	0	/* system is unusable */
+#define	PRI_ALERT	1	/* action must be taken immediately */
+#define	PRI_CRIT	2	/* critical conditions */
+#define	PRI_ERR	       3	/* error conditions */
+#define	PRI_WARN	4	/* warning conditions */
+#define	PRI_NOTICE	5	/* normal but significant condition */
+#define	PRI_INFO	6	/* informational */
+#define	PRI_DEBUG	7	/* debug-level messages */
+
+#define	LOG_PRIMASK	0x07	/* mask to extract priority part (internal) */
+				/* extract priority */
+#define	LOG_PRI(p)	((p) & LOG_PRIMASK)
+
+/* facility codes */
+#define	LOG_KERN	0	/* kernel messages */
+#define	LOG_USER	1	/* random user-level messages */
+#define	LOG_MAIL	2	/* mail system */
+#define	LOG_DAEMON	3	/* system daemons */
+#define	LOG_AUTH	    4	/* security/authorization messages */
+#define	LOG_SYSLOG	    5	/* messages generated internally by syslogd */
+#define	LOG_LPR		6	/* line printer subsystem */
+#define	LOG_NEWS	    7	/* network news subsystem */
+
+#define	CUR_FACMASK	0x07 /* mask to extract facility part (can change ,up to 28 bits)*/
+#define   LOG_FAC(p)    (((p) >> 3) & CUR_FACMASK)
+
+#define   LOG_MSG(fac,p)    (((fac) << 3) | (p))
+#define   LOG_LEVEL(p)     LOG_MSG(LOG_USER,p)
+
+#define	LOG_EMERG	LOG_LEVEL(PRI_EMERG)	
+#define	LOG_ALERT	LOG_LEVEL(PRI_ALERT)		
+#define	LOG_CRIT	LOG_LEVEL(PRI_CRIT)		
+#define	LOG_ERR	LOG_LEVEL(PRI_ERR)		
+#define	LOG_WARN	LOG_LEVEL(PRI_WARN)		
+#define	LOG_NOTICE	LOG_LEVEL(PRI_NOTICE)		
+#define	LOG_INFO	LOG_LEVEL(PRI_INFO)		
+#define	LOG_DEBUG	LOG_LEVEL(PRI_DEBUG)	
+
+typedef struct{
+    int port;
+    char addr[IP_ADDR_LEN];
+    char* file;
+    uint8_t logtype:2, /* 0 none, 1 local,2 remote,3 both*/
+              cyclelog:1,
+              autopack:1,
+              reserved:4;
+    long loglimit;                         
+}tc_log_t;
+
+tc_log_t log_info;
 
 int tc_log_init();
 void tc_log_end();
 
-void tc_log_info(int level, int err, const char *fmt, ...);
-void tc_log_trace(int level, int err, int flag, struct iphdr *ip_header,
+void tc_log_info(unsigned int level, int err, const char *fmt, ...);
+void tc_log_trace(unsigned int level, int err, int flag, struct iphdr *ip_header,
         struct tcphdr *tcp_header);
 
 #if (TCPCOPY_DEBUG)
 
-#define tc_log_debug0(level, err, fmt)                                       \
-    tc_log_info(level, err, (const char *) fmt)
-
-#define tc_log_debug1(level, err, fmt, a1)                                   \
-    tc_log_info(level, err, (const char *) fmt, a1)
-
-#define tc_log_debug2(level, err, fmt, a1, a2)                               \
-    tc_log_info(level, err, (const char *) fmt, a1, a2)
-
-#define tc_log_debug3(level, err, fmt, a1, a2, a3)                           \
-    tc_log_info(level, err, (const char *) fmt, a1, a2, a3)
-
-#define tc_log_debug4(level, err, fmt, a1, a2, a3, a4)                       \
-    tc_log_info(level, err, (const char *) fmt, a1, a2, a3, a4)
-
-#define tc_log_debug5(level, err, fmt, a1, a2, a3, a4, a5)                   \
-    tc_log_info(level, err, (const char *) fmt, a1, a2, a3, a4, a5)
-
-#define tc_log_debug6(level, err, fmt, a1, a2, a3, a4, a5, a6)               \
-    tc_log_info(level, err, (const char *) fmt, a1, a2, a3, a4, a5, a6)
-
-#define tc_log_debug7(level, err, fmt, a1, a2, a3, a4, a5, a6, a7)           \
-    tc_log_info(level, err, (const char *) fmt, a1, a2, a3, a4, a5, a6, a7)
-
-#define tc_log_debug8(level, err, fmt, a1, a2, a3, a4, a5, a6, a7, a8)       \
-    tc_log_info(level, err, (const char *) fmt, a1, a2, a3, a4, a5, a6, a7, a8)
-
+#define tc_log(level,err,fmt,...)   \
+    tc_log_info(level,err,fmt,##__VA_ARGS__)
+    
 #define tc_log_debug_trace(level, err, flag, ip_header, tcp_header)          \
     tc_log_trace(level, err, flag, ip_header, tcp_header)
 
 #else
 
-#define tc_log_debug0(level, err, fmt)
-#define tc_log_debug1(level, err, fmt, a1)
-#define tc_log_debug2(level, err, fmt, a1, a2)
-#define tc_log_debug3(level, err, fmt, a1, a2, a3)
-#define tc_log_debug4(level, err, fmt, a1, a2, a3, a4)
-#define tc_log_debug5(level, err, fmt, a1, a2, a3, a4, a5)
-#define tc_log_debug6(level, err, fmt, a1, a2, a3, a4, a5, a6)
-#define tc_log_debug7(level, err, fmt, a1, a2, a3, a4, a5, a6, a7)
-#define tc_log_debug8(level, err, fmt, a1, a2, a3, a4, a5, a6, a7, a8)
-#define tc_log_debug_trace(level, err, flag, ip_header, tcp_header)
+#define tc_log(level,err,fmt,...)   do{}while(0)
+#define tc_log_debug_trace(level, err, flag, ip_header, tcp_header) do{}while(0)
 
 #endif /* TCPCOPY_DEBUG */
 

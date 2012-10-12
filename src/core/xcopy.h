@@ -79,6 +79,8 @@
 
 #define MAX_ALLOWED_IP_NUM 32
 
+#define IP_ADDR_LEN     16
+
 /* Constants for netlink protocol */
 #define FIREWALL_GROUP  0
 
@@ -204,6 +206,8 @@ int daemonize();
 
 #define tc_cpymem(d, s, l) (((char *) memcpy(d, (void *) s, l)) + (l))
 #define tc_memzero(d, l) (memset(d, 0, l))
+
+#define SIZE(array)	(sizeof(array) / sizeof(array[0]))
 
 #include <tc_link_list.h>
 #include <tc_hash.h>

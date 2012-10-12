@@ -120,7 +120,7 @@ replicate_packs(char *packet, int length, int replica_num)
     rand_port  = clt_settings.rand_port_shifted;
     orig_port  = ntohs(tcp_header->source);
 
-    tc_log_debug1(LOG_DEBUG, 0, "orig port:%u", orig_port);
+    tc_log((LOG_DEBUG), 0, "orig port:%u", orig_port);
 
     for (i = 1; i < replica_num; i++) {
 
@@ -129,7 +129,7 @@ replicate_packs(char *packet, int length, int replica_num)
         tcp_header->source = htons(dest_port);
         process_packet(true, packet, length);
 
-        tc_log_debug2(LOG_DEBUG, 0, "new port:%u,add:%u", dest_port, addition);
+        tc_log((LOG_DEBUG), 0, "new port:%u,add:%u", dest_port, addition);
     }
 }
 
@@ -186,9 +186,9 @@ dispose_packet(char *recv_buf, int recv_len, int *p_valid_flag)
             id          = ip_header->id;
 
 #if (TCPCOPY_DEBUG)
-            tc_log_trace(LOG_NOTICE, 0, CLIENT_FLAG, ip_header, tcp_header);
+            tc_log_trace((LOG_NOTICE), 0, CLIENT_FLAG, ip_header, tcp_header);
 #endif
-            tc_log_debug1(LOG_DEBUG, 0, "recv:%d, more than MTU", recv_len);
+            tc_log((LOG_DEBUG), 0, "recv:%d, more than MTU", recv_len);
             index = head_len;
 
             for (i = 0 ; i < packet_num; i++) {
@@ -294,7 +294,7 @@ check_read_stop()
     history_diff = timeval_diff(&first_pack_time, &last_pack_time);
     cur_diff     = timeval_diff(&base_time, &cur_time);
 
-    tc_log_debug2(LOG_DEBUG, 0, "diff,old:%llu,new:%llu", 
+    tc_log((LOG_DEBUG), 0, "diff,old:%llu,new:%llu", 
             history_diff, cur_diff);
     if (history_diff <= cur_diff) {
         return false;
@@ -406,7 +406,7 @@ send_packets_from_pcap(int first)
                     dispose_packet((char*)ip_data, ip_pack_len, &p_valid_flag);
                     if (p_valid_flag) {
 
-                        tc_log_debug0(LOG_DEBUG, 0, "valid flag for packet");
+                        tc_log((LOG_DEBUG), 0, "valid flag for packet");
 
                         if (first) {
 
@@ -417,7 +417,7 @@ send_packets_from_pcap(int first)
                     } else {
 
                         stop = false;
-                        tc_log_debug0(LOG_DEBUG, 0, "stop,invalid flag");
+                        tc_log((LOG_DEBUG), 0, "stop,invalid flag");
                     }
                 }
             }

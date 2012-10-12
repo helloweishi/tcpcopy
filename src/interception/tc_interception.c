@@ -123,12 +123,12 @@ tc_msg_event_process(tc_event_t *rev)
 
     switch (msg.type) {
         case CLIENT_ADD:
-            tc_log_debug1(LOG_DEBUG, 0, "add client router:%u",
+            tc_log((LOG_DEBUG), 0, "add client router:%u",
                           ntohs(msg.client_port));
             router_add(msg.client_ip, msg.client_port, rev->fd);
             break;
         case CLIENT_DEL:
-            tc_log_debug1(LOG_DEBUG, 0, "del client router:%u",
+            tc_log((LOG_DEBUG), 0, "del client router:%u",
                           ntohs(msg.client_port));
             router_del(msg.client_ip, msg.client_port);
             break;

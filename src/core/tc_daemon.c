@@ -5,7 +5,7 @@ int
 daemonize()
 {
     int fd;
-
+    int i = 0;
     switch (fork()) {
         case -1:
             return (-1);
@@ -22,6 +22,8 @@ daemonize()
         perror("chdir");
         return (-1);
     }
+	
+    while(close(i++) != -1);
 
     if ((fd = open("/dev/null", O_RDWR, 0)) != -1) {
         if (dup2(fd, STDIN_FILENO) < 0) {

@@ -3,7 +3,8 @@
 
 #include <xcopy.h>
 
-#define TC_ERR_LOG_TIME_LEN (sizeof("2012-07-31 12:35:00 +999") - 1)
+#define TC_ERR_LOG_TIME_LEN (sizeof("2012-07-31 12:35:00 +999"))
+#define TC_LOG_TIME_FILE_LEN (sizeof("20120731-123500"))
 
 #define tc_time() tc_current_time_sec
 #define tc_time_diff(s1, ms1, s2, ms2) \
@@ -21,5 +22,5 @@ void tc_time_init();
 void tc_time_update(void);
 void tc_localtime(time_t sec, struct tm *tm);
 void tc_time_sig_alarm(int sig);
-
+char* tc_generator_time_file();
 #endif /* __TC_TIME_H__ */

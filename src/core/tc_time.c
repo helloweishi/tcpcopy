@@ -8,6 +8,7 @@ volatile long       tc_current_time_msec;
 volatile struct tm  tc_current_tm;
 
 static char cache_err_log_time[TC_ERR_LOG_TIME_LEN];
+char log_time_file[TC_LOG_TIME_FILE_LEN];
 
 int
 tc_time_set_timer(long msec)
@@ -46,6 +47,20 @@ tc_time_init()
     tc_time_update();
 }
 
+char* tc_generator_time_file()
+{
+      struct tm       tm;
+       time_t          sec;
+       
+       time(&sec);
+       tc_localtime(sec, &tm);
+
+       snprintf(log_time_file,TC_LOG_TIME_FILE_LEN,"%4d%02d%02d-%02d%02d%02d", tm.tm_year, tm.tm_mon,
+                tm.tm_mday, tm.tm_hour,tm.tm_min, tm.tm_sec);
+
+       return (&log_time_file);
+}
+
 void
 tc_time_update()
 {
@@ -64,7 +79,7 @@ tc_time_update()
 
     tc_localtime(sec, &tm);
 
-    sprintf(cache_err_log_time, "%4d/%02d/%02d %02d:%02d:%02d +%03d",
+    snprintf(cache_err_log_time,TC_ERR_LOG_TIME_LEN, "%4d/%02d/%02d %02d:%02d:%02d +%03d",
             tm.tm_year, tm.tm_mon,
             tm.tm_mday, tm.tm_hour,
             tm.tm_min, tm.tm_sec,

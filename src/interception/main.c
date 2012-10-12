@@ -83,30 +83,80 @@ set_signal_handler()
 
 }
 
+
+#define MULTICAST_PREFIX	0xE0
+#define BROADCAST_SUFFIX  0xFF
+#define IP_NUMBER_CHECK(str,num)	\
+({	\
+	while((*(str) != '\0') && (*(str) != '.'))	\
+	{	\
+	    if(*(str) > '9' || *(str) < '0')	\
+		return 0;	\
+	    (num) = (num)*10 + (*(str) - '0');	\
+	    if((num) > 0xFF)		\
+		return 0; 	\
+	    ++(str);		\
+	}	\
+	if(*(str) != '\0')	\
+	    ++(str);		\
+})
+
+static int is_valid_ipv4_addr(char* addr)
+{
+    unsigned long int num[4] = {0,0,0,0};
+    char* dot = addr;
+	
+    if (dot == NULL)
+        return 0;
+	
+    IP_NUMBER_CHECK(dot,num[0]);
+    IP_NUMBER_CHECK(dot,num[1]);
+    IP_NUMBER_CHECK(dot,num[2]);
+    IP_NUMBER_CHECK(dot,num[3]);
+	
+/*
+* exclude 0.x.x.x , above multicast  address, and broadcast address
+*/
+    if (num[0] >= MULTICAST_PREFIX || num[0] == 0
+	|| num[3] == 0 || num[3] == BROADCAST_SUFFIX)
+	return 0;
+
+return 1;
+}
+
 /* Retrieve ip addresses */
 static int
 retrieve_ip_addr()
 {
     int          count = 0;
-    char         tmp[32];
-    size_t       len;
     uint32_t     address;
     const char  *split, *p;
-
-    memset(tmp, 0, 32);
+    char ipstr[IP_ADDR_LEN] = {0};
+    
     p = srv_settings.raw_ip_list;
 
     while (true) {
         split = strchr(p, ',');
-        if (split != NULL) {
-            len = (size_t)(split - p);
-        } else {
-            len = strlen(p);
+        if (*p == '\0')
+            break;
+        if (split == NULL)
+        {
+            if (strlen(p) > IP_ADDR_LEN)
+                break;
+            sprintf(ipstr,"%s",p);
         }
-
-        strncpy(tmp, p, len);
-        address = inet_addr(tmp);
-        srv_settings.passed_ips.ips[count++] = address;
+        else
+        {
+            if (split - p > IP_ADDR_LEN)
+                continue;
+             snprintf(ipstr,split - p,"%s",p);
+         }
+/*
+* make sure numbers-and-dots notation is valid before converting
+*/		
+        if (is_valid_ipv4_addr(ipstr))
+            if ((address = inet_addr(ipstr)) != INADDR_NONE)
+        	  srv_settings.passed_ips.ips[count++] = address;
 
         if (count == MAX_ALLOWED_IP_NUM) {
             tc_log_info(LOG_WARN, 0, "reach the limit for passing firewall");
@@ -118,8 +168,6 @@ retrieve_ip_addr()
         } else {
             p = split + 1;
         }
-
-        memset(tmp, 0, 32);
     }
 
     srv_settings.passed_ips.num = count;

@@ -137,7 +137,7 @@ router_update(tc_ip_header_t *ip_header, int len)
 
     fd  = hash_find(table, key);
     if ( NULL == fd ) {
-        tc_log_debug0(LOG_DEBUG, 0, "fd is null");
+        tc_log((LOG_DEBUG), 0, "fd is null");
         delay_table_add(key, &msg);
 
         pthread_mutex_unlock(&mutex);
@@ -195,7 +195,7 @@ router_update(struct iphdr *ip_header)
     key = get_key(ip_header->daddr, tcp_header->dest);
     fd  = hash_find(table, key);
     if ( NULL == fd ) {
-        tc_log_debug0(LOG_DEBUG, 0, "fd is null");
+        tc_log((LOG_DEBUG), 0, "fd is null");
         delay_table_add(key, &msg);
         return ;
     }

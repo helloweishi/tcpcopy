@@ -154,4 +154,39 @@ tcpcsum(unsigned char *iphdr, unsigned short *packet, int pack_len)
 
     return res; 
 }  
+extern char **environ;
+int tc_system(char *command) 
+{
+    int pid = 0, status = 0;
+
+    if ( command == NULL )
+        return 1;
+
+    pid = fork();
+    if ( pid == -1 )
+        return -1;
+
+    if ( pid == 0 ) {
+        char *argv[4];
+        argv[0] = "sh";
+        argv[1] = "-c";
+        argv[2] = command;
+        argv[3] = 0;
+
+        execve("/bin/sh", argv, environ);
+        exit(127);
+    }
+
+    /* wait for child process return */
+    do {
+       if ( waitpid(pid, &status, 0) == -1 ) {
+            if (errno != EINTR)
+                return -1;
+       }else{
+            return status;
+        }    
+    } while (1);
+
+    return status;
+}
 

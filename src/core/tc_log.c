@@ -1,57 +1,198 @@
 
 #include <xcopy.h>
+#include "tc_util.h"
 
-static int log_fd = -1;
+static FILE* log_f = NULL;
+static int remote_fd = -1;
 
-typedef struct {
-    char *level;
-    int   len;
-} tc_log_level_t;
+#define CMD_LEN     512
 
-static tc_log_level_t tc_log_levels[] = {
-    { "[unknown]", 9 }, 
-    { "[emerg]", 7 },
-    { "[alert]", 7 },
-    { "[crit]", 6 },
-    { "[error]", 7 },
-    { "[warn]", 6 },
-    { "[notice]", 8},
-    { "[info]", 6},
-    { "[debug]", 7 }
+tc_log_t log_info = {
+    .port = 514,
+    .addr =
+    {
+        [0] = '1',
+        [1] = '2',
+        [2] = '7',
+        [3] = '.',
+        [4] = '0',
+        [5] = '.',
+        [6] = '0',
+        [7] = '.',
+        [8] = '1'
+     },
+    .logtype = 0,
+    .cyclelog = 0,
+    .autopack = 0
+};
+
+static char *tc_log_dir = NULL;
+static struct sockaddr_in remoteaddr;
+
+static char* tc_log_pris[] = {
+  [PRI_EMERG]     =  "EMERG",
+  [PRI_ALERT]      =  "ALERT",
+  [PRI_CRIT]        =  "CRIT", 
+  [PRI_ERR]          =  "ERROR", 
+  [PRI_WARN]      =  "WARN", 
+  [PRI_NOTICE]    =  "NOTICE", 
+  [PRI_INFO]        =  "INFO", 
+  [PRI_DEBUG]     =  "DEBUG"
+};
+
+static char* tc_log_fac[] = {
+  [LOG_KERN]       =  "KERN",
+  [LOG_USER]       =  "USER",
+  [LOG_MAIL]        =  "MAIL", 
+  [LOG_DAEMON]   =  "DAEMON", 
+  [LOG_AUTH]        =  "AUTH", 
+  [LOG_SYSLOG]    =  "SYSLOG", 
+  [LOG_LPR]          =  "LPR", 
+  [LOG_NEWS]       =  "NEWS"
 };
 
 int
 tc_log_init(const char *file)
 {
-    log_fd = open((file == NULL ? "error.log" : file),
-                  O_RDWR|O_CREAT|O_APPEND, 0644);
+    if (log_info.logtype & 1)
+    {
+        if (log_info.file == NULL){
+            log_info.file = "error.log";
+        }
+        else
+        {
+            char *last_slash = strrchr(log_info.file,'/');
+            if (last_slash != NULL)
+            {
+                unsigned int dir_len = (last_slash - log_info.file) + 2;
+                if ((tc_log_dir = (char*)malloc(dir_len)) != NULL)
+                {
+                    char cmd[CMD_LEN] = {0};
+                    
+                    snprintf(tc_log_dir,dir_len,"%s",log_info.file);
+                    snprintf(cmd,CMD_LEN,"mkdir -p %s",tc_log_dir);
+                    tc_system(cmd);
+                }
+            }
+        }
+        
+        log_f = fopen(log_info.file,"w+");
 
-    if (log_fd == -1) {
-        fprintf(stderr, "Open log file error: %s\n", strerror(errno));
+        if (log_f == NULL) {
+            fprintf(stderr, "Open log file error: %s\n", strerror(errno));
+        }
     }
 
-    return log_fd;
+    if (log_info.logtype & 2)
+    {
+        memset(&remoteaddr,0,sizeof(struct sockaddr_in));
+        remote_fd = socket(AF_INET,SOCK_DGRAM,0);
+        if(remote_fd < 0){
+             fprintf(stderr, "Create socket  error: %s\n", strerror(errno));
+        }
+        
+       remoteaddr.sin_family = AF_INET;
+	inet_aton(log_info.addr,&remoteaddr.sin_addr);
+	remoteaddr.sin_port = htons(log_info.port);
+    }
+    
+    return 0;
 }
 
 void
 tc_log_end()
 {
-    if (log_fd != -1) {
-        close(log_fd);
+    if (log_f != NULL) {
+        fclose(log_f);
+    }
+    
+    if(remote_fd != -1){
+        close(remote_fd);
+    }
+        
+    log_f = NULL;
+    remote_fd = -1;
+}
+
+#define BUF_LEN 2048
+#define LOGLEVEL_LEN 16
+
+static void tc_local_log(char *logstr,char *loglevel)
+{
+    char buffer[BUF_LEN] = {0};
+    int n = 0;
+    if (logstr == NULL || loglevel == NULL){
+        return;
+    }
+     
+    n = snprintf(buffer,BUF_LEN,"%s %14s %s\n",tc_error_log_time,loglevel,logstr);
+    if (n < 0){
+        return;
+    }
+    
+    fwrite(buffer,sizeof(char), n,log_f);
+
+    if (log_info.autopack || log_info.cyclelog)
+    {
+        (void)fseek(log_f,0,SEEK_END);
+        long size = ftell(log_f);
+        
+        if (log_info.loglimit <= size)
+        {
+            if (log_info.autopack)
+            {
+                char cmd[CMD_LEN] = {0};
+                if (tc_log_dir != NULL){
+                    snprintf(cmd,CMD_LEN,"cp -rf %s %s%s",log_info.file,tc_log_dir,tc_generator_time_file());
+                } else {
+                    snprintf(cmd,CMD_LEN,"cp -rf %s %s",log_info.file,tc_generator_time_file());
+                }
+                tc_system(cmd);
+                
+                fseek(log_f,0,SEEK_SET);
+                if (!log_info.cyclelog){
+                   ftruncate(fileno(log_f),0);
+                }
+                return;
+            }
+            
+            if (log_info.cyclelog){
+                fseek(log_f,0,SEEK_SET);
+            }
+            return;
+        }
+    }
+}
+
+static void tc_remote_log(char *logstr,int level)
+{
+    char buffer[BUF_LEN] = {0};
+    int n = 0,count = 0;
+    if (logstr == NULL){
+        return;
+    }
+    
+    n = snprintf(buffer,BUF_LEN,"<%d> %s",level,logstr);
+    if (n < 0){
+        return;
     }
 
-    log_fd = -1;
+   while((-1 == sendto(remote_fd,buffer,n,0,(struct sockaddr*)&remoteaddr,sizeof(remoteaddr)))
+                && errno == EINTR
+                && ++count <= 3)
+                usleep(500);
+    
 }
 
 void
-tc_log_info(int level, int err, const char *fmt, ...)
+tc_log_info(unsigned int level, int err, const char *fmt, ...)
 {
-    char            buffer[2048], *p;
+    char            buffer[BUF_LEN], *p,*end;
     size_t          n;
     va_list         args;
-    tc_log_level_t *ll;
+    char loglevel[LOGLEVEL_LEN] = {0};
 
-    if (log_fd == -1) {
+    if (log_f == NULL && remote_fd == -1) {
         return;
     }
 
@@ -59,18 +200,11 @@ tc_log_info(int level, int err, const char *fmt, ...)
     tc_time_update();
 #endif
 
-    ll = &tc_log_levels[level];
-
     p = buffer;
-
-    p = tc_cpymem(p, tc_error_log_time, TC_ERR_LOG_TIME_LEN);
-    *p++ = ' ';
-
-    p = tc_cpymem(p, ll->level, ll->len);
-    *p++ = ' ';
+    end = &buffer[BUF_LEN - 1];
 
     va_start(args, fmt);
-    n = vsprintf(p, fmt, args);
+    n = vsnprintf(p,end - p, fmt, args);
     va_end(args);
 
     if (n < 0) {
@@ -80,21 +214,25 @@ tc_log_info(int level, int err, const char *fmt, ...)
     p += n;
 
     if (err > 0) {
-        n = sprintf(p, " (%s)", strerror(err));
+        n = snprintf(p,end - p, " (%s)", strerror(err));
         if (n < 0) {
             return;
         }
-
-        p += n;
     }
-
-    *p++ = '\n';
-
-    write(log_fd, buffer, p - buffer);
+    
+    if (log_f != NULL){
+        snprintf(loglevel ,LOGLEVEL_LEN ,"%s.%s:",tc_log_fac[LOG_FAC(level)] ,tc_log_pris[LOG_PRI(level)]);
+        tc_local_log(buffer ,loglevel);
+    }
+    
+    if (remote_fd != -1){
+        tc_remote_log(buffer,level);
+    }
+    
 }
 
 void
-tc_log_trace(int level, int err, int flag, struct iphdr *ip_header,
+tc_log_trace(unsigned int level, int err, int flag, struct iphdr *ip_header,
         struct tcphdr *tcp_header)
 {
     char           *tmp_buf, src_ip[1024], dst_ip[1024];

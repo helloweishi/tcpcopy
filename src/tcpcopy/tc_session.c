@@ -81,7 +81,7 @@ trim_packet(session_t *s, struct iphdr *ip_header,
     tcp_header->seq    = htonl(s->vir_next_seq);
     payload = (unsigned char*)((char*)tcp_header + size_tcp);
     memmove(payload, payload + diff, cont_len - diff);
-    tc_log_debug1(LOG_DEBUG, 0, "trim packet:%u", s->src_h_port);
+    tc_log(LOG_DEBUG, 0, "trim packet:%u", s->src_h_port);
 
     return true;
 }
@@ -243,7 +243,7 @@ send_faked_passive_rst(session_t *s)
     struct tcphdr  *f_tcp_header;
     unsigned char   faked_rst_buf[FAKE_IP_DATAGRAM_LEN];
 
-    tc_log_debug1(LOG_DEBUG, 0, "send_faked_passive_rst:%u", s->src_h_port);
+   tc_log(LOG_DEBUG, 0, "send_faked_passive_rst:%u", s->src_h_port);
 
     memset(faked_rst_buf, 0, FAKE_IP_DATAGRAM_LEN);
 
@@ -597,7 +597,7 @@ save_packet(link_list *list, struct iphdr *ip_header,
 
     ln->key = ntohl(tcp_header->seq);
     link_list_append_by_order(list, ln);
-    tc_log_debug0(LOG_DEBUG, 0, "save packet");
+    tc_log(LOG_DEBUG, 0, "save packet");
 }
 
 #if (TCPCOPY_MYSQL_ADVANCED)
@@ -734,7 +734,7 @@ send_reserved_packets(session_t *s)
     struct tcphdr  *tcp_header;
     unsigned char  *data;
 
-    tc_log_debug2(LOG_DEBUG, 0, "send reserved packs,size:%u, port:%u",
+    tc_log(LOG_DEBUG, 0, "send reserved packs,size:%u, port:%u",
             s->unsend_packets->size, s->src_h_port);
 
     if (SYN_CONFIRM > s->sm.status) {
@@ -762,7 +762,7 @@ send_reserved_packets(session_t *s)
         if (cur_seq > s->vir_next_seq) {
 
             /* We need to wait for previous packet */
-            tc_log_debug0(LOG_DEBUG, 0, "we need to wait prev pack");
+            tc_log(LOG_DEBUG, 0, "we need to wait prev pack");
             s->sm.is_waiting_previous_packet = 1;
             s->sm.candidate_response_waiting = 0;
             break;
@@ -771,7 +771,7 @@ send_reserved_packets(session_t *s)
             cont_len   = get_pack_cont_len(ip_header, tcp_header);
             if (cont_len > 0) {
                 /* Special disposure here */
-                tc_log_debug1(LOG_DEBUG, 0, "reserved strange:%u", 
+                tc_log(LOG_DEBUG, 0, "reserved strange:%u", 
                         s->src_h_port);
                 diff = s->vir_next_seq - cur_seq;
                 if (!trim_packet(s, ip_header, tcp_header, diff)) {
@@ -943,7 +943,7 @@ check_session_obsolete(session_t *s, time_t cur, time_t threshold_time)
     /* If not receiving response for a long time */
     if (s->resp_last_recv_cont_time < threshold_time) {
         obs_cnt++;
-        tc_log_debug2(LOG_DEBUG, 0, "timeout,unsend number:%u,p:%u",
+        tc_log(LOG_DEBUG, 0, "timeout,unsend number:%u,p:%u",
                 s->unsend_packets->size, s->src_h_port);
         return OBSOLETE;
     }
@@ -1098,7 +1098,7 @@ retransmit_packets(session_t *s)
             /* Retransmit until vir_next_seq*/
             if (cur_seq < expected_seq) {
                 s->sm.unack_pack_omit_save_flag = 1;
-                tc_log_debug1(LOG_DEBUG, 0, "retransmit:%u", s->src_h_port);
+                tc_log(LOG_DEBUG, 0, "retransmit:%u", s->src_h_port);
                 wrap_send_ip_packet(s, data, true);
                 ln = link_list_get_next(list, ln);
             } else {
@@ -1159,7 +1159,7 @@ check_reserved_content_left(session_t *s)
     struct iphdr   *ip_header;
     unsigned char  *data;
 
-    tc_log_debug0(LOG_DEBUG, 0, "check_reserved_content_left");
+    tc_log(LOG_DEBUG, 0, "check_reserved_content_left");
 
     list = s->unsend_packets;
     ln = link_list_first(list); 
@@ -1265,7 +1265,7 @@ mysql_prepare_for_new_session(session_t *s,
         }
     }
 
-    tc_log_debug2(LOG_DEBUG, 0, "total len subtracted:%u,p:%u", 
+    tc_log(LOG_DEBUG, 0, "total len subtracted:%u,p:%u", 
             total_cont_len, s->src_h_port);
 
     /* Rearrange seq */
@@ -1429,7 +1429,7 @@ send_faked_rst(session_t *s, struct iphdr *ip_header,
     struct tcphdr  *f_tcp_header;
     unsigned char   faked_rst_buf[FAKE_IP_DATAGRAM_LEN];
 
-    tc_log_debug1(LOG_DEBUG, 0, "send faked rst:%u", s->src_h_port);
+   tc_log(LOG_DEBUG, 0, "send faked rst:%u", s->src_h_port);
 
     memset(faked_rst_buf, 0, FAKE_IP_DATAGRAM_LEN);
     f_ip_header  = (struct iphdr *)faked_rst_buf;
@@ -1468,7 +1468,7 @@ fake_syn(session_t *s, struct iphdr *ip_header,
     uint16_t  target_port;
     uint64_t  new_key;
 
-    tc_log_debug1(LOG_DEBUG, 0, "fake syn:%u", s->src_h_port);
+   tc_log(LOG_DEBUG, 0, "fake syn:%u", s->src_h_port);
 
     if (is_hard) {
         while (true) {
@@ -1557,7 +1557,7 @@ mysql_check_reconnection(session_t *s, struct iphdr *ip_header,
 
             save_packet(s->mysql_special_packets, ip_header, tcp_header);
 
-            tc_log_debug1(LOG_DEBUG, 0, "push statement:%u", s->src_h_port);
+           tc_log(LOG_DEBUG, 0, "push statement:%u", s->src_h_port);
 
             list = (link_list *)hash_find(mysql_table, s->src_h_port);
             if (!list) {
@@ -1645,7 +1645,7 @@ check_backend_ack(session_t *s, struct iphdr *ip_header,
     } else if (ack < s->vir_next_seq) {
 
         /* If ack from test server is less than what we expect */
-        tc_log_debug3(LOG_DEBUG, 0, "bak_ack less than vir_next_seq:%u,%u,p:%u",
+        tc_log(LOG_DEBUG, 0, "bak_ack less than vir_next_seq:%u,%u,p:%u",
                 ack, s->vir_next_seq, s->src_h_port);
 
         if (!s->sm.resp_syn_received) {
@@ -1725,7 +1725,7 @@ process_back_syn(session_t *s, struct iphdr *ip_header,
 {
     conn_cnt++;
 
-    tc_log_debug1(LOG_DEBUG, 0, "recv syn from back:%u", s->src_h_port);
+    tc_log(LOG_DEBUG, 0, "recv syn from back:%u", s->src_h_port);
 
     s->sm.resp_syn_received = 1;
     s->sm.status = SYN_CONFIRM;
@@ -1746,7 +1746,7 @@ static void
 process_back_fin(session_t *s, struct iphdr *ip_header,
         struct tcphdr *tcp_header)
 {
-    tc_log_debug1(LOG_DEBUG, 0, "recv fin from back:%u", s->src_h_port);
+    tc_log(LOG_DEBUG, 0, "recv fin from back:%u", s->src_h_port);
 
     s->sm.dst_closed = 1;
     s->sm.candidate_response_waiting = 0;
@@ -1852,7 +1852,7 @@ process_backend_packet(session_t *s, struct iphdr *ip_header,
 
     if ( tcp_header->rst) {
         s->sm.reset_sent = 1;
-        tc_log_debug1(LOG_DEBUG, 0, "reset from back:%u", s->src_h_port);
+        tc_log(LOG_DEBUG, 0, "reset from back:%u", s->src_h_port);
         return;
     }
 
@@ -1981,7 +1981,7 @@ process_backend_packet(session_t *s, struct iphdr *ip_header,
             if (s->sm.candidate_response_waiting)
 #endif
             {
-                tc_log_debug0(LOG_DEBUG, 0, "receive back server's resp");
+                tc_log(LOG_DEBUG, 0, "receive back server's resp");
                 s->sm.candidate_response_waiting = 0;
                 s->sm.status = RECV_RESP;
                 s->sm.delay_sent_flag = 0;
@@ -1992,7 +1992,7 @@ process_backend_packet(session_t *s, struct iphdr *ip_header,
         /* There are no content in packet */
 
         if (s->sm.delay_sent_flag) {
-            tc_log_debug1(LOG_DEBUG, 0, "send delayed cont:%u", s->src_h_port);
+            tc_log(LOG_DEBUG, 0, "send delayed cont:%u", s->src_h_port);
             s->sm.delay_sent_flag = 0;
             send_reserved_packets(s);
             return;
@@ -2011,7 +2011,7 @@ process_client_rst(session_t *s, struct iphdr *ip_header,
 {
     uint32_t seq;
 
-    tc_log_debug1(LOG_DEBUG, 0, "reset from client:%u", s->src_h_port);
+    tc_log(LOG_DEBUG, 0, "reset from client:%u", s->src_h_port);
 
     if (s->sm.candidate_response_waiting) {
         save_packet(s->unsend_packets, ip_header, tcp_header);
@@ -2037,7 +2037,7 @@ process_client_syn(session_t *s, struct iphdr *ip_header,
 
     s->sm.req_syn_ok = 1;
 
-    tc_log_debug1(LOG_DEBUG, 0, "syn port:%u", s->src_h_port);
+    tc_log(LOG_DEBUG, 0, "syn port:%u", s->src_h_port);
 
 #if (TCPCOPY_MYSQL_BASIC)
     /* Remove old mysql info*/
@@ -2067,12 +2067,12 @@ process_client_fin(session_t *s, struct iphdr *ip_header,
 {
     uint16_t cont_len;
 
-    tc_log_debug1(LOG_DEBUG, 0, "recv fin from clt:%u", s->src_h_port);
+   tc_log(LOG_DEBUG, 0, "recv fin from clt:%u", s->src_h_port);
 
     s->sm.status |= CLIENT_FIN;
     cont_len = get_pack_cont_len(ip_header, tcp_header);
     if (cont_len > 0) {
-        tc_log_debug1(LOG_DEBUG, 0, "fin has content:%u", s->src_h_port);
+        tc_log(LOG_DEBUG, 0, "fin has content:%u", s->src_h_port);
         return DISP_CONTINUE;
     }
 
@@ -2224,7 +2224,7 @@ check_pack_save_or_not(session_t *s, struct iphdr *ip_header,
      */
     if (s->req_cont_last_ack_seq != s->req_cont_cur_ack_seq) {
         *is_new_req = 1;
-        tc_log_debug1(LOG_DEBUG, 0, "it is a new req,p:%u", s->src_h_port);
+        tc_log(LOG_DEBUG, 0, "it is a new req,p:%u", s->src_h_port);
     }
 
     if (*is_new_req) {
@@ -2259,7 +2259,7 @@ check_wait_prev_packet(session_t *s, struct iphdr *ip_header,
 
     if (cur_seq > s->vir_next_seq) {
 
-        tc_log_debug1(LOG_DEBUG, 0, "lost and need prev:%u", s->src_h_port);
+       tc_log(LOG_DEBUG, 0, "lost and need prev:%u", s->src_h_port);
         save_packet(s->unsend_packets, ip_header, tcp_header);
         send_reserved_packets(s);
         return DISP_STOP;
@@ -2278,7 +2278,7 @@ check_wait_prev_packet(session_t *s, struct iphdr *ip_header,
         retransmit_seq = s->vir_next_seq - cont_len;
         if (cur_seq <= retransmit_seq) {
             /* Retransmission packet from client */
-            tc_log_debug1(LOG_DEBUG, 0, "retransmit from clt:%u", s->src_h_port);
+            tc_log(LOG_DEBUG, 0, "retransmit from clt:%u", s->src_h_port);
         } else {
             diff = s->vir_next_seq - cur_seq;
             if (trim_packet(s, ip_header, tcp_header, diff)) {
@@ -2298,7 +2298,7 @@ is_continuous_packet(session_t *s, struct iphdr *ip_header,
     if (s->sm.candidate_response_waiting) {
         if (cur_seq > s->req_last_cont_sent_seq) {
             wrap_send_ip_packet(s, (unsigned char *)ip_header, true);
-            tc_log_debug0(LOG_DEBUG, 0, "it is a continuous req");
+            tc_log(LOG_DEBUG, 0, "it is a continuous req");
             return DISP_STOP;
         }
     }
@@ -2324,7 +2324,7 @@ process_clt_afer_filtering(session_t *s, struct iphdr *ip_header,
         }
     }
 
-    tc_log_debug1(LOG_DEBUG, 0, "drop packet:%u", s->src_h_port);
+    tc_log(LOG_DEBUG, 0, "drop packet:%u", s->src_h_port);
 }
 
 /*
@@ -2365,7 +2365,7 @@ process_client_packet(session_t *s, struct iphdr *ip_header,
     if (s->sm.sess_more) {
         /* TODO Some statitics are not right because of this */
         save_packet(s->next_sess_packs, ip_header, tcp_header);
-        tc_log_debug1(LOG_DEBUG, 0, "buffer for next session:%u", s->src_h_port);
+        tc_log(LOG_DEBUG, 0, "buffer for next session:%u", s->src_h_port);
         return;
     }
 
@@ -2424,7 +2424,7 @@ process_client_packet(session_t *s, struct iphdr *ip_header,
         /* Update ack seq values for checking a new request */
         s->req_cont_last_ack_seq = s->req_cont_cur_ack_seq;
         s->req_cont_cur_ack_seq  = ntohl(tcp_header->ack_seq);
-        tc_log_debug2(LOG_DEBUG, 0, "cont len:%d,p:%u", cont_len, s->src_h_port);
+        tc_log(LOG_DEBUG, 0, "cont len:%d,p:%u", cont_len, s->src_h_port);
 #if (TCPCOPY_MYSQL_BASIC)
         /* Process mysql client auth packet */
         if (DISP_STOP == process_mysql_clt_auth_pack(s, ip_header, 
@@ -2458,7 +2458,7 @@ process_client_packet(session_t *s, struct iphdr *ip_header,
             return;
         }
 
-        tc_log_debug0(LOG_DEBUG, 0, "a new request from client");
+        tc_log(LOG_DEBUG, 0, "a new request from client");
     }
 
     /* Post disposure */
@@ -2659,7 +2659,7 @@ process(char *packet, int pack_src)
             }
         } else {
             tc_log_debug_trace(LOG_DEBUG, 0, BACKEND_FLAG, ip_header, tcp_header);
-            tc_log_debug0(LOG_DEBUG, 0, "no active session for me");
+            tc_log(LOG_DEBUG, 0, "no active session for me");
         }
     } else if (LOCAL == pack_src) {
 
@@ -2676,7 +2676,7 @@ process(char *packet, int pack_src)
             if (s) {
                 /* Check if it is a duplicate syn */
                 if (tcp_header->seq == s->req_last_syn_seq) {
-                    tc_log_debug0(LOG_DEBUG, 0, "duplicate syn");
+                    tc_log(LOG_DEBUG, 0, "duplicate syn");
                     return true;
                 } else {
                     /*
@@ -2692,7 +2692,7 @@ process(char *packet, int pack_src)
                         s->next_sess_packs = link_list_create();
                     }
                     save_packet(s->next_sess_packs, ip_header, tcp_header);
-                    tc_log_debug0(LOG_DEBUG, 0, "buffer the new session");
+                    tc_log(LOG_DEBUG, 0, "buffer the new session");
                     return true;
                 }
             } else {
