@@ -20,22 +20,21 @@ typedef struct {
 
 
 typedef struct xcopy_clt_settings {
-    unsigned int  replica_num:10;       /* Replicated number of each request */
-    unsigned int  factor:8;             /* Port shift factor */
-    unsigned int  mtu:16;               /* MTU sent to backend */
-    unsigned int  do_daemonize:1;       /* Daemon flag */
-    unsigned int  max_rss:21;           /* Max memory size allowed for tcpcopy
-                                           client(max size 2G) */
+    struct{
+    unsigned int  do_daemonize:1,       /* Daemon flag */
+                        replica_num:10,       /* Replicated number of each request */
+                        max_rss:21;           /* Max memory size allowed for tcpcopy client(max size 2G) */
+          }mix;
 
-    unsigned int  session_timeout:16;   /* Max value for session timeout
-                                           If it reaches this value, the session
-                                           will be removed */
+    uint16_t  mtu;               /* MTU sent to backend */
+    uint16_t  session_timeout;   /* Max value for session timeout
+                                           If it reaches this value, the session  will be removed */
 
     char         *raw_transfer;         /* Online_ip online_port target_ip
                                            target_port string */
 
     char         *pid_file;             /* Pid file */
-    char         *log_path;             /* Error log path */
+    char         *conf_path;             /* Error log path */
 #if (TCPCOPY_OFFLINE)
     char         *pcap_file;            /* Pcap file */
 #endif
@@ -49,6 +48,8 @@ typedef struct xcopy_clt_settings {
     ip_port_pair_mappings_t transfer;   /* Transfered online_ip online_port
                                            target_ip target_port */
     int           multiplex_io;
+    uint8_t  factor;             /* Port shift factor */ 
+
 } xcopy_clt_settings;
 
 

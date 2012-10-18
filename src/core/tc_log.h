@@ -50,18 +50,23 @@
 #define	LOG_INFO	LOG_LEVEL(PRI_INFO)		
 #define	LOG_DEBUG	LOG_LEVEL(PRI_DEBUG)	
 
+
+  
 typedef struct{
-    int port;
-    char addr[IP_ADDR_LEN];
-    char* file;
+    uint16_t log_port;
+    char log_addr[IP_ADDR_LEN];
+    char* log_file;
+ struct {
     uint8_t logtype:2, /* 0 none, 1 local,2 remote,3 both*/
               cyclelog:1,
               autopack:1,
-              reserved:4;
+              loglevel:4;
+  }log_ct;
+
     long loglimit;                         
 }tc_log_t;
 
-tc_log_t log_info;
+extern  tc_log_t log_info;
 
 int tc_log_init();
 void tc_log_end();
@@ -73,7 +78,12 @@ void tc_log_trace(unsigned int level, int err, int flag, struct iphdr *ip_header
 #if (TCPCOPY_DEBUG)
 
 #define tc_log(level,err,fmt,...)   \
-    tc_log_info(level,err,fmt,##__VA_ARGS__)
+({  \
+    do{ \
+        if (LOG_PRI(level) <= log_info.log_ct.loglevel)   \
+            tc_log_info(level,err,fmt,##__VA_ARGS__); \
+    }while(0);  \
+})
     
 #define tc_log_debug_trace(level, err, flag, ip_header, tcp_header)          \
     tc_log_trace(level, err, flag, ip_header, tcp_header)

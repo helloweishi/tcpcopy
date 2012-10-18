@@ -150,7 +150,7 @@ dispose_packet(char *recv_buf, int recv_len, int *p_valid_flag)
 
     if (is_packet_needed((const char *)packet)) {
 
-        replica_num = clt_settings.replica_num;
+        replica_num = clt_settings.mix.replica_num;
         packet_num = 1;
         ip_header   = (struct iphdr*)packet;
 

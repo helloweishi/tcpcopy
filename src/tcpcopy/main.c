@@ -17,6 +17,37 @@
 /* Global variables for tcpcopy client */
 xcopy_clt_settings clt_settings;
 
+#define TCPCOPY_CONFIG_FILE  "./tcpcopy.conf"
+
+static config_setting config[] = {
+    CONFIG_ITEM(raw_transfer ,clt_settings ,TYPE_CHAR_PTR ,0)
+#if (TCPCOPY_OFFLINE)
+    CONFIG_ITEM(pcap_file ,clt_settings ,TYPE_CHAR_PTR ,0)
+#endif
+#ifdef TCPCOPY_MYSQL_ADVANCED
+    CONFIG_ITEM(user_pwd ,clt_settings ,TYPE_CHAR_PTR ,0)
+#endif
+    CONFIG_ITEM(pid_file ,clt_settings ,TYPE_CHAR_PTR ,0)
+    CONFIG_ITEM(session_timeout ,clt_settings ,TYPE_UINT16_T ,0)
+    CONFIG_ITEM(mtu ,clt_settings ,TYPE_UINT16_T ,0)
+    CONFIG_ITEM(factor ,clt_settings ,TYPE_UINT8_T ,0)
+    CONFIG_ITEM(lo_tf_ip ,clt_settings ,TYPE_IPV4_ADDR ,0)
+    CONFIG_ITEM(multiplex_io ,clt_settings ,TYPE_UNSIGNED_INT ,0)
+    CONFIG_ITEM(srv_port ,clt_settings ,TYPE_UINT16_T ,0)
+    CONFIG_ITEM_BIT(do_daemonize ,clt_settings ,mix ,TYPE_UNSIGNED_INT ,0x1 ,0)
+    CONFIG_ITEM_BIT(replica_num ,clt_settings ,mix ,TYPE_UNSIGNED_INT ,0x7FE ,1)
+    CONFIG_ITEM_BIT(max_rss ,clt_settings ,mix ,TYPE_UNSIGNED_INT ,0xFFFFF800 ,21)
+    CONFIG_ITEM(log_port ,log_info ,TYPE_UINT16_T ,0)
+    CONFIG_ITEM(log_addr ,log_info ,TYPE_CHAR_ARRAY ,IP_ADDR_LEN)
+    CONFIG_ITEM(log_file ,log_info ,TYPE_CHAR_PTR ,0)
+    CONFIG_ITEM_BIT(logtype ,log_info ,log_ct ,TYPE_UINT8_T ,0x3 ,0)
+    CONFIG_ITEM_BIT(cyclelog ,log_info ,log_ct ,TYPE_UINT8_T ,0x4 ,2)
+    CONFIG_ITEM_BIT(autopack ,log_info ,log_ct ,TYPE_UINT8_T ,0x8 ,3)
+    CONFIG_ITEM_BIT(loglevel ,log_info ,log_ct ,TYPE_UINT8_T ,0xF0 ,4)
+    CONFIG_ITEM(loglimit ,log_info ,TYPE_LONG ,0)
+    NULL_ITEM
+};
+
 int tc_raw_socket_out;
 tc_event_loop_t event_loop;
 
@@ -117,16 +148,16 @@ read_args(int argc, char **argv)
                 break;
 #endif
             case 'n':
-                clt_settings.replica_num = atoi(optarg);
+                clt_settings.mix.replica_num = atoi(optarg);
                 break;
             case 'f':
                 clt_settings.factor = atoi(optarg);
                 break;
             case 'm':
-                clt_settings.max_rss = 1024*atoi(optarg);
+                clt_settings.mix.max_rss = 1024*atoi(optarg);
                 break;
             case 'l':
-                clt_settings.log_path = optarg;
+                clt_settings.conf_path = optarg;
                 break;
             case 'M':
                 clt_settings.mtu = atoi(optarg);
@@ -141,7 +172,7 @@ read_args(int argc, char **argv)
                 printf ("tcpcopy version:%s\n", VERSION);
                 return -1;
             case 'd':
-                clt_settings.do_daemonize = 1;
+                clt_settings.mix.do_daemonize = 1;
                 break;
             case 'p':
                 clt_settings.srv_port = atoi(optarg);
@@ -345,7 +376,7 @@ set_details()
 #endif
 
     /* Daemonize */
-    if (clt_settings.do_daemonize) {
+    if (clt_settings.mix.do_daemonize) {
         if (sigignore(SIGHUP) == -1) {
             tc_log_info(LOG_ERR, errno, "Failed to ignore SIGHUP");
         }
@@ -368,11 +399,12 @@ static void
 settings_init()
 {
     /* Init values */
+    memset(&clt_settings,0,sizeof(clt_settings));
     clt_settings.mtu = DEFAULT_MTU;
-    clt_settings.max_rss = MAX_MEMORY_SIZE;
+    clt_settings.mix.max_rss = MAX_MEMORY_SIZE;
     clt_settings.srv_port = SERVER_PORT;
     clt_settings.session_timeout = DEFAULT_SESSION_TIMEOUT;
-
+    
     tc_raw_socket_out = TC_INVALID_SOCKET;
 
     set_signal_handler();
@@ -393,8 +425,11 @@ main(int argc, char **argv)
     if (read_args(argc, argv) == -1) {
         return -1;
     }
-
-    if (tc_log_init(clt_settings.log_path) == -1) {
+    
+    if (tc_setting_from_conf(config, (clt_settings.conf_path?clt_settings.conf_path:TCPCOPY_CONFIG_FILE)) == -1) {
+        return -1;
+    }
+    if (tc_log_init() == -1) {
         return -1;
     }
 

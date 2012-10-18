@@ -81,6 +81,8 @@
 
 #define IP_ADDR_LEN     16
 
+#define BUFFER_LEN      512
+
 /* Constants for netlink protocol */
 #define FIREWALL_GROUP  0
 

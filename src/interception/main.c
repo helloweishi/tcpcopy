@@ -20,6 +20,27 @@
 xcopy_srv_settings srv_settings;
 static tc_event_loop_t s_event_loop;
 
+#define INTERCEPTION_CONFIG_FILE     "./interception.conf"
+
+static config_setting config[] = {
+    CONFIG_ITEM(raw_ip_list ,srv_settings ,TYPE_CHAR_PTR ,0)
+    CONFIG_ITEM(binded_ip ,srv_settings ,TYPE_CHAR_PTR ,0)
+    CONFIG_ITEM(pid_file ,srv_settings ,TYPE_CHAR_PTR ,0)
+    CONFIG_ITEM(hash_size ,srv_settings ,TYPE_SIZE_T ,0)
+    CONFIG_ITEM(port ,srv_settings ,TYPE_UINT16_T ,0)
+    CONFIG_ITEM_BIT(do_daemonize ,srv_settings ,daemon ,TYPE_UINT8_T ,0x1 ,0)
+    CONFIG_ITEM(log_port ,log_info ,TYPE_UINT16_T ,0)
+    CONFIG_ITEM(log_addr ,log_info ,TYPE_CHAR_ARRAY ,IP_ADDR_LEN)
+    CONFIG_ITEM(log_file ,log_info ,TYPE_CHAR_PTR ,0)
+    CONFIG_ITEM_BIT(logtype ,log_info ,log_ct ,TYPE_UINT8_T ,0x3 ,0)
+    CONFIG_ITEM_BIT(cyclelog ,log_info ,log_ct ,TYPE_UINT8_T ,0x4 ,2)
+    CONFIG_ITEM_BIT(autopack ,log_info ,log_ct ,TYPE_UINT8_T ,0x8 ,3)
+    CONFIG_ITEM_BIT(loglevel ,log_info ,log_ct ,TYPE_UINT8_T ,0xF0 ,4)
+    CONFIG_ITEM(loglimit ,log_info ,TYPE_LONG ,0)
+    NULL_ITEM
+};
+
+
 static void
 release_resources()
 {
@@ -81,47 +102,6 @@ set_signal_handler()
         }
     }
 
-}
-
-
-#define MULTICAST_PREFIX	0xE0
-#define BROADCAST_SUFFIX  0xFF
-#define IP_NUMBER_CHECK(str,num)	\
-({	\
-	while((*(str) != '\0') && (*(str) != '.'))	\
-	{	\
-	    if(*(str) > '9' || *(str) < '0')	\
-		return 0;	\
-	    (num) = (num)*10 + (*(str) - '0');	\
-	    if((num) > 0xFF)		\
-		return 0; 	\
-	    ++(str);		\
-	}	\
-	if(*(str) != '\0')	\
-	    ++(str);		\
-})
-
-static int is_valid_ipv4_addr(char* addr)
-{
-    unsigned long int num[4] = {0,0,0,0};
-    char* dot = addr;
-	
-    if (dot == NULL)
-        return 0;
-	
-    IP_NUMBER_CHECK(dot,num[0]);
-    IP_NUMBER_CHECK(dot,num[1]);
-    IP_NUMBER_CHECK(dot,num[2]);
-    IP_NUMBER_CHECK(dot,num[3]);
-	
-/*
-* exclude 0.x.x.x , above multicast  address, and broadcast address
-*/
-    if (num[0] >= MULTICAST_PREFIX || num[0] == 0
-	|| num[3] == 0 || num[3] == BROADCAST_SUFFIX)
-	return 0;
-
-return 1;
 }
 
 /* Retrieve ip addresses */
@@ -225,7 +205,7 @@ read_args(int argc, char **argv) {
                 usage();
                 return -1;
             case 'l':
-                srv_settings.log_path = optarg;
+                srv_settings.conf_path = optarg;
                 break;
             case 'P':
                 srv_settings.pid_file = optarg;
@@ -234,7 +214,7 @@ read_args(int argc, char **argv) {
                 printf ("intercept version:%s\n", VERSION);
                 return -1;
             case 'd':
-                srv_settings.do_daemonize = 1;
+                srv_settings.daemon.do_daemonize = 1;
                 break;
             default:
                 fprintf(stderr, "Illegal argument \"%c\"\n", c);
@@ -259,7 +239,7 @@ set_details()
         retrieve_ip_addr();
     }
     /* Daemonize */
-    if (srv_settings.do_daemonize) {
+    if (srv_settings.daemon.do_daemonize) {
         /* TODO why warning*/
         if (sigignore(SIGHUP) == -1) {
             tc_log_info(LOG_ERR, errno, "Failed to ignore SIGHUP");
@@ -281,10 +261,10 @@ set_details()
 /* Set defaults */
 static void settings_init(void)
 {
+    memset(&srv_settings,0,sizeof(srv_settings));
     srv_settings.port = SERVER_PORT;
     srv_settings.hash_size = 65536;
-    srv_settings.binded_ip = NULL;
-
+    
     set_signal_handler();
 }
 
@@ -313,8 +293,12 @@ main(int argc, char **argv)
     if (read_args(argc, argv) == -1) {
         return -1;
     }
-
-    if (tc_log_init(srv_settings.log_path) == -1) {
+    
+    if (tc_setting_from_conf(config, (srv_settings.conf_path?srv_settings.conf_path:INTERCEPTION_CONFIG_FILE)) == -1) {
+        return -1;
+    }
+    
+    if (tc_log_init() == -1) {
         return -1;
     }
 

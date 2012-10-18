@@ -110,9 +110,9 @@ check_resource_usage(tc_event_timer_t *evt)
     /* This is only valid since Linux 2.6.32 */
     tc_log_info(LOG_NOTICE, 0, "max memory size:%ld", usage.ru_maxrss);
 
-    if (usage.ru_maxrss > clt_settings.max_rss) {
+    if (usage.ru_maxrss > clt_settings.mix.max_rss) {
         tc_log_info(LOG_WARN, 0, "occupies too much memory,limit:%ld",
-                 clt_settings.max_rss);
+                 clt_settings.mix.max_rss);
     }
 
     evt->msec = tc_current_time_msec + 60000;
